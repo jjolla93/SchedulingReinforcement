@@ -6,54 +6,65 @@ import environment.work as work
 
 class Scheduling(object):
     def __init__(self, num_days=4, num_blocks=0, inbound_works=None, display_env=False):
-        self.action_space = 3
+        self.action_space = 2  # 좌로 이동 비활성화시 2, 활성화시 3
         self.num_days = num_days
         self.num_work = len(inbound_works)
         self.num_block = num_blocks
+        self.n_features = num_blocks * num_days
         self.empty = 0
-        self.step = 0
+        self.stage = 0
         self.inbound_works = inbound_works
         self.inbound_clone = inbound_works[:]
         self.works = [0]
         self._ongoing = 0
         self._location = 0
+        self.left_action = 2
+        self.right_action = 0
+        self.select_action = 1
         # self.yard = np.full([max_stack, num_pile], self.empty)
         if display_env:
             display = LocatingDisplay(self, num_days, self.num_block)
             display.game_loop_from_space()
 
-    def action(self, action):
+    def step(self, action):
         done = False
+        self.stage += 1
         reward = 0
-        self.step += 1
-        if action == 2:
+        if action == self.select_action:  # 일정 확정
             self._ongoing += 1
-            self._location = 0
             if self._ongoing == self.num_work:
                 done = True
             else:
+                # 다음 블록의 액티비티는 0부터 시작
+                if self.inbound_works[self._ongoing - 1].block != self.inbound_works[self._ongoing].block:
+                    self._location = 0
+                else:
+                    self._location += self.inbound_works[self._ongoing - 1].lead_time
+                    self._location = min(self.num_days - self.inbound_works[self._ongoing].lead_time, self._location)
                 self.works.append(self._location)
+            reward = self._calculate_reward()
         else:
-            if action == 0:
+            if action == self.left_action:  # 좌로 이동
                 self._location = max(0, self._location - 1)
-            elif action == 1:
-                self._location = min(self.num_days - 1, self._location + 1)
+            elif action == self.right_action:  # 우로 이동
+                self._location = min(self.num_days - self.inbound_works[self._ongoing].lead_time, self._location + 1)
             if len(self.works) == self._ongoing:
                 self.works.append(self._location)
             else:
                 self.works[self._ongoing] = self._location
-        next_state = self.get_state()
+        next_state = self.get_state().flatten()
         return next_state, reward, done
 
     def reset(self):
         self.inbound_works = self.inbound_clone[:]
-        self.works = []
-        self.step = 0
+        self.works = [0]
+        self.stage = 0
         self._ongoing = 0
         self._location = 0
+        return self.get_state().flatten()
 
     def get_state(self):
-        state = np.full([self.num_work, self.num_days], 0)
+        state = np.full([self.num_block, self.num_days], 0)
         moving = 1
         confirmed = 2
         constraint = 3
@@ -71,11 +82,22 @@ class Scheduling(object):
                 state[self.inbound_works[i].block, location + j] = cell
         return state
 
+    def _calculate_reward(self):
+        state = self.get_state()
+        state[state == 1] = 0
+        state[state == 2] = 1
+        state[state == 3] = 0
+        loads = np.sum(state, axis=0)
+        zeros = np.full(loads.shape, 0)
+        deviation = ((loads - zeros) ** 2).mean(axis=0)
+        #deviation = max(0.2, float(np.std(loads)))
+        deviation = max(0.2, deviation)
+        return 1 / deviation - 1
+
 
 class LocatingDisplay(object):
     white = (255, 255, 255)
     black = (0, 0, 0)
-
     red = (255, 0, 0)
     green = (0, 255, 0)
     blue = (0, 0, 255)
@@ -126,8 +148,8 @@ class LocatingDisplay(object):
 
     def board(self, step, reward=0):
         large_text = pygame.font.Font(self.font, 20)
-        text_surf, text_rect = self.text_objects('step: ' + str(step) + '   reward: ' + str(reward)
-                                                 + '   total: ' + str(self.total), large_text)
+        text_surf, text_rect = self.text_objects('step: ' + str(step) + '   reward: ' + format(reward, '.2f')
+                                                 + '   total: ' + format(self.total, '.2f'), large_text)
         text_rect.center = (200, 20)
         self.gameDisplay.blit(text_surf, text_rect)
 
@@ -161,16 +183,16 @@ class LocatingDisplay(object):
                     quit()
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_LEFT:
-                        action = 0
+                        action = self.space.left_action
                     elif event.key == pygame.K_RIGHT:
-                        action = 1
+                        action = self.space.right_action
                     elif event.key == pygame.K_DOWN:
-                        action = 2
+                        action = self.space.select_action
                     elif event.key == pygame.K_ESCAPE:
                         game_exit = True
                         break
                 if action != -1:
-                    state, reward, done = self.space.action(action)
+                    state, reward, done = self.space.step(action)
                     self.total += reward
                 if done:
                     self.restart()
@@ -180,7 +202,7 @@ class LocatingDisplay(object):
                 action = -1
             self.gameDisplay.fill(self.black)
             self.draw_space(self.space)
-            self.board(self.space.step, reward)
+            self.board(self.space.stage, reward)
             self.draw_grid()
             self.message_display('Schedule', self.display_width // 2, 80)
             pygame.display.flip()
@@ -223,8 +245,8 @@ class LocatingDisplay(object):
 
 
 if __name__ == '__main__':
-    days = 15
-    blocks = 5
+    days = 15  # 90일
+    blocks = 5  # 10개
     #inbounds = [Work('Work' + str(i), lead_time=-1, max_days=days) for i in range(blocks)]
     #inbounds = [Work('Work' + str(i), i // 2, lead_time=-1, max_days=days) for i in range(10)]
     inbounds = []
@@ -238,7 +260,7 @@ if __name__ == '__main__':
     inbounds.append(work.Work('Work7', 3, 3, -1, 12, days))
     inbounds.append(work.Work('Work8', 4, 2, 4, -1, days))
     inbounds.append(work.Work('Work9', 4, 2, -1, 14, days))
-    inbounds.append(work.Work('Work9', 4, 2, -1, 14, days))
+    #inbounds.append(work.Work('Work9', 4, 2, -1, 14, days))
     env = Scheduling(num_days=days, num_blocks=blocks, inbound_works=inbounds, display_env=True)
     '''
     s, r, d = env.action(0)

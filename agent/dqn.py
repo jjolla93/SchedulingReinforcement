@@ -27,6 +27,7 @@ class DeepQNetwork:
             self,
             n_actions,
             n_features,
+            feature_size,
             learning_rate=0.01,
             reward_decay=0.9,
             e_greedy=0.9,
@@ -38,6 +39,7 @@ class DeepQNetwork:
     ):
         self.n_actions = n_actions
         self.n_features = n_features
+        self.feature_size = feature_size
         self.lr = learning_rate
         self.gamma = reward_decay
         self.epsilon_max = e_greedy
@@ -72,6 +74,7 @@ class DeepQNetwork:
     def _build_net(self):
         # ------------------ build evaluate_net ------------------
         self.s = tf.placeholder(tf.float32, [None, self.n_features], name='s')  # input
+        self.s_reshaped = tf.reshape(self.s, shape=[-1, self.feature_size[0], self.feature_size[1], 1])
         self.q_target = tf.placeholder(tf.float32, [None, self.n_actions], name='Q_target')  # for calculating loss
         with tf.variable_scope('eval_net'):
             # c_names(collections_names) are the collections to store variables
@@ -79,11 +82,25 @@ class DeepQNetwork:
                 ['eval_net_params', tf.GraphKeys.GLOBAL_VARIABLES], 10, \
                 tf.random_normal_initializer(0., 0.3), tf.constant_initializer(0.1)  # config of layers
 
+            # first convolution layer.
+            with tf.variable_scope('conv1'):
+                w1_conv = tf.get_variable('w1_conv', [4, 4, 1, 16], initializer=w_initializer, collections=c_names)
+                b1_conv = tf.get_variable('b1_conv', [1], initializer=b_initializer, collections=c_names)
+                conv1 = tf.nn.relu(
+                    tf.nn.conv2d(self.s_reshaped, w1_conv, strides=[1, 2, 2, 1], padding='SAME') + b1_conv)
+
+            # second convolution layer.
+            with tf.variable_scope('conv2'):
+                w2_conv = tf.get_variable('w2_conv', [2, 2, 16, 32], initializer=w_initializer, collections=c_names)
+                b2_conv = tf.get_variable('b2_conv', [1], initializer=b_initializer, collections=c_names)
+                conv2 = tf.nn.relu(tf.nn.conv2d(conv1, w2_conv, strides=[1, 1, 1, 1], padding='SAME') + b2_conv)
+                conv2 = tf.layers.flatten(conv2)
+
             # first layer. collections is used later when assign to target net
             with tf.variable_scope('l1'):
-                w1 = tf.get_variable('w1', [self.n_features, n_l1], initializer=w_initializer, collections=c_names)
+                w1 = tf.get_variable('w1', [768, n_l1], initializer=w_initializer, collections=c_names)
                 b1 = tf.get_variable('b1', [1, n_l1], initializer=b_initializer, collections=c_names)
-                l1 = tf.nn.relu(tf.matmul(self.s, w1) + b1)
+                l1 = tf.nn.relu(tf.matmul(conv2, w1) + b1)
 
             # second layer. collections is used later when assign to target net
             with tf.variable_scope('l2'):
@@ -98,15 +115,30 @@ class DeepQNetwork:
 
         # ------------------ build target_net ------------------
         self.s_ = tf.placeholder(tf.float32, [None, self.n_features], name='s_')    # input
+        self.s_reshaped_ = tf.reshape(self.s, shape=[-1, self.feature_size[0], self.feature_size[1], 1])
         with tf.variable_scope('target_net'):
             # c_names(collections_names) are the collections to store variables
             c_names = ['target_net_params', tf.GraphKeys.GLOBAL_VARIABLES]
 
+            # first convolution layer.
+            with tf.variable_scope('conv1'):
+                w1_conv = tf.get_variable('w1_conv', [4, 4, 1, 16], initializer=w_initializer, collections=c_names)
+                b1_conv = tf.get_variable('b1_conv', [1], initializer=b_initializer, collections=c_names)
+                conv1 = tf.nn.relu(
+                    tf.nn.conv2d(self.s_reshaped_, w1_conv, strides=[1, 2, 2, 1], padding='SAME') + b1_conv)
+
+            # second convolution layer.
+            with tf.variable_scope('conv2'):
+                w2_conv = tf.get_variable('w2_conv', [2, 2, 16, 32], initializer=w_initializer, collections=c_names)
+                b2_conv = tf.get_variable('b2_conv', [1], initializer=b_initializer, collections=c_names)
+                conv2 = tf.nn.relu(tf.nn.conv2d(conv1, w2_conv, strides=[1, 1, 1, 1], padding='SAME') + b2_conv)
+                conv2 = tf.layers.flatten(conv2)
+
             # first layer. collections is used later when assign to target net
             with tf.variable_scope('l1'):
-                w1 = tf.get_variable('w1', [self.n_features, n_l1], initializer=w_initializer, collections=c_names)
+                w1 = tf.get_variable('w1', [768, n_l1], initializer=w_initializer, collections=c_names)
                 b1 = tf.get_variable('b1', [1, n_l1], initializer=b_initializer, collections=c_names)
-                l1 = tf.nn.relu(tf.matmul(self.s_, w1) + b1)
+                l1 = tf.nn.relu(tf.matmul(conv2, w1) + b1)
 
             # second layer. collections is used later when assign to target net
             with tf.variable_scope('l2'):
@@ -200,13 +232,14 @@ def run(episodes=1000, update_term=5):
         # initial observation
         observation = env.reset()
         rs = []
+        actions = []
         while True:
             # fresh env
             #env.render()
 
             # RL choose action based on observation
             action = RL.choose_action(observation)
-
+            actions.append(action)
             # RL take action and get next observation and reward
             observation_, reward, done = env.step(action)
             rs.append(reward)
@@ -222,6 +255,12 @@ def run(episodes=1000, update_term=5):
             if done:
                 rewards.append(sum(rs))
                 avg_rewards.append(sum(rewards) / len(rewards))
+                #if len(rewards) > 100:
+                    #avg_rewards.append(sum(rewards[-100:]) / 100)
+                if episode > 8000 and episode % 100 == 0:
+                    print(actions)
+                    print(rs)
+                    print(sum(rs))
                 break
             step += 1
         if episode % 100 == 0:
@@ -233,16 +272,22 @@ def run(episodes=1000, update_term=5):
 
 
 if __name__ == "__main__":
-    # ssy environment
-    #inbounds = [ssy.Plate('P' + str(i), outbound=-1) for i in range(30)]  # 테스트용 임의 강재 데이터
-    inbounds = work.import_plates_schedule('../environment/data/plate_example1.csv')  # 수정필요
-    env = sch.Scheduling(max_stack=10, num_pile=8, inbound_plates=inbounds, display_env=False)  # 수정필요
-    RL = DeepQNetwork(env.action_space, env.n_features,
-                      learning_rate=0.01,
-                      reward_decay=1,
-                      e_greedy=0.9,
+    days = 15  # 90일
+    blocks = 5  # 10개
+    inbounds = [work.Work('Work0', 0, 2, -1, -1, days), work.Work('Work1', 0, 1, -1, 5, days),
+                work.Work('Work2', 1, 1, 1, -1, days), work.Work('Work3', 1, 3, -1, 8, days),
+                work.Work('Work4', 2, 2, 4, -1, days), work.Work('Work5', 2, 2, -1, 10, days),
+                work.Work('Work6', 3, 1, 2, -1, days), work.Work('Work7', 3, 3, -1, 12, days),
+                work.Work('Work8', 4, 2, 4, -1, days), work.Work('Work9', 4, 2, -1, 14, days)]
+    # inbounds.append(work.Work('Work9', 4, 2, -1, 14, days))
+    env = sch.Scheduling(num_days=days, num_blocks=blocks, inbound_works=inbounds, display_env=False)
+    RL = DeepQNetwork(env.action_space, env.n_features, (env.num_block, env.num_days),
+                      learning_rate=1e-3,
+                      reward_decay=0.99,
+                      e_greedy=0.5,
                       replace_target_iter=200,
                       memory_size=20000,
                       output_graph=False
+                      #,e_greedy_increment=-1e-5
                       )
-    run(1000)
+    run(5000)
