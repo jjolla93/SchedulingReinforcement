@@ -12,10 +12,12 @@ gym: 0.7.3
 
 import numpy as np
 import pandas as pd
+import scipy
 import tensorflow as tf
 
 import environment.scheduling as sch
 import environment.work as work
+from agent.helper import *
 
 np.random.seed(1)
 tf.set_random_seed(1)
@@ -233,10 +235,9 @@ def run(episodes=1000, update_term=5):
         observation = env.reset()
         rs = []
         actions = []
+        episode_frames = []
         while True:
-            # fresh env
-            #env.render()
-
+            episode_frames.append(observation)
             # RL choose action based on observation
             action = RL.choose_action(observation)
             actions.append(action)
@@ -257,14 +258,15 @@ def run(episodes=1000, update_term=5):
                 avg_rewards.append(sum(rewards) / len(rewards))
                 #if len(rewards) > 100:
                     #avg_rewards.append(sum(rewards[-100:]) / 100)
-                if episode > 8000 and episode % 100 == 0:
+                if episode > 8000 and episode % 100 == 0 and False:
                     print(actions)
                     print(rs)
                     print(sum(rs))
                 break
             step += 1
-        if episode % 100 == 0:
+        if episode % 100 == 0 and episode != 0:
             print('episode: {0} finished'.format(episode))
+            save_gif(episode_frames, RL.feature_size, episode, 'dqn')
 
     plot_reward(avg_rewards)
     # end of game
