@@ -82,7 +82,7 @@ class Scheduling(object):
                 state[self.inbound_works[i].block, location + j] = cell
         return state
 
-    def _calculate_reward(self):
+    def _calculate_reward2(self):
         state = self.get_state()
         state[state == 1] = 0
         state[state == 2] = 1
@@ -92,7 +92,23 @@ class Scheduling(object):
         deviation = ((loads - zeros) ** 2).mean(axis=0)
         #deviation = max(0.2, float(np.std(loads)))
         deviation = max(0.2, deviation)
-        return 1 / deviation - 1
+        return 1 / deviation
+
+    def _calculate_reward(self):
+        state = self.get_state()
+        state[state == 1] = 0
+        state[state == 2] = 1
+        state[state == 3] = 0
+        last_work = self.works[-2]
+        lead_time = self.inbound_works[self._ongoing - 1].lead_time
+        loads = np.sum(state, axis=0)
+        reward = 0
+        for i in range(lead_time):
+            if loads[last_work + i] > 1:
+                reward += 0
+            elif loads[last_work + i] == 1:
+                reward += 1
+        return reward
 
 
 class LocatingDisplay(object):

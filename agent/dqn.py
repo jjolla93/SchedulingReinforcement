@@ -10,9 +10,6 @@ Tensorflow: 1.0
 gym: 0.7.3
 """
 
-import numpy as np
-import pandas as pd
-import scipy
 import tensorflow as tf
 import os
 
@@ -303,11 +300,11 @@ if __name__ == "__main__":
 
     env = sch.Scheduling(num_days=days, num_blocks=blocks, inbound_works=inbounds, display_env=False)
     RL = DeepQNetwork(env.action_space, env.n_features, (env.num_block, env.num_days),
-                      learning_rate=1e-3,
+                      learning_rate=1e-4,
                       reward_decay=0.99,
-                      e_greedy=0.5,
+                      e_greedy=0.7,
                       replace_target_iter=200,
-                      memory_size=20000,
+                      memory_size=50000,
                       output_graph=False
                       #,e_greedy_increment=-1e-5
                       )
