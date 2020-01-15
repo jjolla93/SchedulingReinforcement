@@ -91,14 +91,14 @@ class DeepQNetwork:
 
             # second convolution layer.
             with tf.variable_scope('conv2'):
-                w2_conv = tf.get_variable('w2_conv', [2, 2, 16, 32], initializer=w_initializer, collections=c_names)
+                w2_conv = tf.get_variable('w2_conv', [4, 4, 16, 32], initializer=w_initializer, collections=c_names)
                 b2_conv = tf.get_variable('b2_conv', [1], initializer=b_initializer, collections=c_names)
                 conv2 = tf.nn.relu(tf.nn.conv2d(conv1, w2_conv, strides=[1, 1, 1, 1], padding='SAME') + b2_conv)
                 conv2 = tf.layers.flatten(conv2)
 
             # first layer. collections is used later when assign to target net
             with tf.variable_scope('l1'):
-                w1 = tf.get_variable('w1', [11872, n_l1], initializer=w_initializer, collections=c_names)
+                w1 = tf.get_variable('w1', [3072, n_l1], initializer=w_initializer, collections=c_names)
                 b1 = tf.get_variable('b1', [1, n_l1], initializer=b_initializer, collections=c_names)
                 l1 = tf.nn.relu(tf.matmul(conv2, w1) + b1)
 
@@ -129,14 +129,14 @@ class DeepQNetwork:
 
             # second convolution layer.
             with tf.variable_scope('conv2'):
-                w2_conv = tf.get_variable('w2_conv', [2, 2, 16, 32], initializer=w_initializer, collections=c_names)
+                w2_conv = tf.get_variable('w2_conv', [4, 4, 16, 32], initializer=w_initializer, collections=c_names)
                 b2_conv = tf.get_variable('b2_conv', [1], initializer=b_initializer, collections=c_names)
                 conv2 = tf.nn.relu(tf.nn.conv2d(conv1, w2_conv, strides=[1, 1, 1, 1], padding='SAME') + b2_conv)
                 conv2 = tf.layers.flatten(conv2)
 
             # first layer. collections is used later when assign to target net
             with tf.variable_scope('l1'):
-                w1 = tf.get_variable('w1', [11872, n_l1], initializer=w_initializer, collections=c_names)
+                w1 = tf.get_variable('w1', [3072, n_l1], initializer=w_initializer, collections=c_names)
                 b1 = tf.get_variable('b1', [1, n_l1], initializer=b_initializer, collections=c_names)
                 l1 = tf.nn.relu(tf.matmul(conv2, w1) + b1)
 
@@ -167,7 +167,13 @@ class DeepQNetwork:
             actions_value = self.sess.run(self.q_eval, feed_dict={self.s: observation})
             action = np.argmax(actions_value)
         else:
-            action = np.random.randint(0, self.n_actions)
+            #action = np.random.randint(0, self.n_actions)
+            action_factor = 0.7
+            rand_value = np.random.rand()
+            if rand_value < action_factor:
+                action = 0
+            else:
+                action = 1
         return action
 
     def learn(self):
@@ -262,7 +268,7 @@ def run(episodes=1000, update_term=5):
                     print(sum(rs))
                 break
             step += 1
-        if episode % 100 == 0 and episode != 0:
+        if episode % 1000 == 0 and episode != 0:
             print('episode: {0} finished'.format(episode))
             save_gif(episode_frames, RL.feature_size, episode, 'dqn')
 
@@ -283,8 +289,8 @@ if __name__ == "__main__":
     # inbounds.append(work.Work('Work9', 4, 2, -1, 14, days))
     '''
 
-    inbounds = work.import_blocks_schedule('../environment/data/191227_납기일 추가.xlsx')
-
+    inbounds = work.import_blocks_schedule('../environment/data/191227_납기일 추가.xlsx', backward=True)
+    inbounds = inbounds[:7]
     '''
     for i in range(len(inbounds)):
         print("블록 번호: {0}, 계획공기: {1}, 납기일: {2}".format(inbounds[i].block, inbounds[i].lead_time, inbounds[i].latest_finish))
@@ -298,14 +304,14 @@ if __name__ == "__main__":
     if not os.path.exists('../frames/dqn/%d-%d' % (days, blocks)):
         os.makedirs('../frames/dqn/%d-%d' % (days, blocks))
 
-    env = sch.Scheduling(num_days=days, num_blocks=blocks, inbound_works=inbounds, display_env=False)
+    env = sch.Scheduling(num_days=days, num_blocks=blocks, inbound_works=inbounds, backward=True, display_env=False)
     RL = DeepQNetwork(env.action_space, env.n_features, (env.num_block, env.num_days),
-                      learning_rate=1e-4,
-                      reward_decay=0.99,
-                      e_greedy=0.7,
+                      learning_rate=1e-5,
+                      reward_decay=1.0,
+                      e_greedy=0.5,
                       replace_target_iter=200,
-                      memory_size=50000,
+                      memory_size=200000,
                       output_graph=False
                       #,e_greedy_increment=-1e-5
                       )
-    run(5000)
+    run(50000)

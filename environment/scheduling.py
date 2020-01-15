@@ -5,7 +5,7 @@ import environment.work as work
 
 
 class Scheduling(object):
-    def __init__(self, num_days=4, num_blocks=0, inbound_works=None, display_env=False):
+    def __init__(self, num_days=4, num_blocks=0, inbound_works=None, backward=True, display_env=False):
         self.action_space = 2  # 좌로 이동 비활성화시 2, 활성화시 3
         self.num_days = num_days
         self.num_work = len(inbound_works)
@@ -15,12 +15,17 @@ class Scheduling(object):
         self.stage = 0
         self.inbound_works = inbound_works
         self.inbound_clone = inbound_works[:]
-        self.works = [0]
         self._ongoing = 0
         self._location = 0
         self.left_action = 2
         self.right_action = 0
         self.select_action = 1
+        self.backward = backward
+        if backward:
+            self.left_action, self.right_action = self.right_action, self.left_action
+            self._location = \
+                self.inbound_works[self._ongoing].latest_finish - self.inbound_works[self._ongoing].lead_time
+        self.works = [self._location]
         # self.yard = np.full([max_stack, num_pile], self.empty)
         if display_env:
             display = LocatingDisplay(self, num_days, self.num_block)
@@ -30,37 +35,52 @@ class Scheduling(object):
         done = False
         self.stage += 1
         reward = 0
+        current_work = self.inbound_works[self._ongoing]
         if action == self.select_action:  # 일정 확정
             self._ongoing += 1
             if self._ongoing == self.num_work:
                 done = True
             else:
-                # 다음 블록의 액티비티는 0부터 시작
-                if self.inbound_works[self._ongoing - 1].block != self.inbound_works[self._ongoing].block:
-                    self._location = 0
-                else:
-                    self._location += self.inbound_works[self._ongoing - 1].lead_time
-                    self._location = min(self.num_days - self.inbound_works[self._ongoing].lead_time, self._location)
+                next_work = self.inbound_works[self._ongoing]
+                if current_work.block != next_work.block:  # 다음 액티비티가 다음 블록인 경우 시작일 설정
+                    if self.backward:
+                        self._location = next_work.latest_finish - next_work.lead_time
+                    else:
+                        self._location = 0
+                else:  # 다음 액티비티가 동일 블록인 경우
+                    if self.backward:
+                        self._location -= next_work.lead_time
+                    else:
+                        self._location += current_work.lead_time
+                    self._location = min(self.num_days - next_work.lead_time, self._location)
                 self.works.append(self._location)
             reward = self._calculate_reward()
-        else:
+        else:  # 일정 이동
             if action == self.left_action:  # 좌로 이동
                 self._location = max(0, self._location - 1)
             elif action == self.right_action:  # 우로 이동
-                self._location = min(self.num_days - self.inbound_works[self._ongoing].lead_time, self._location + 1)
+                due_date = current_work.latest_finish
+                if due_date != -1:
+                    self._location = min(due_date - current_work.lead_time, self._location + 1)
+                else:
+                    self._location = min(self.num_days - current_work.lead_time, self._location + 1)
             if len(self.works) == self._ongoing:
                 self.works.append(self._location)
             else:
                 self.works[self._ongoing] = self._location
         next_state = self.get_state().flatten()
+        if self.stage == 300:
+            done = True
         return next_state, reward, done
 
     def reset(self):
         self.inbound_works = self.inbound_clone[:]
-        self.works = [0]
         self.stage = 0
         self._ongoing = 0
-        self._location = 0
+        if self.backward:
+            self._location = \
+                self.inbound_works[self._ongoing].latest_finish - self.inbound_works[self._ongoing].lead_time
+        self.works = [self._location]
         return self.get_state().flatten()
 
     def get_state(self):

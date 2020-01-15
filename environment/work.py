@@ -14,7 +14,7 @@ class Work(object):
             self.lead_time = lead_time
 
 
-def import_blocks_schedule(filepath):
+def import_blocks_schedule(filepath, backward=True):
 
     df_rev = pd.read_excel(filepath)
     #df_schedule = pd.read_csv(filepath, encoding='euc-kr')
@@ -22,7 +22,10 @@ def import_blocks_schedule(filepath):
 
     masking = [a or b or c or d for a, b, c, d in zip(df['공정'] == 4, df['공정'] == 6, df['공정'] == 7, df['공정'] == 8)]
     df_schedule = df[masking]
-    df_schedule.sort_values(by=['납기일', '호선', '블록그룹', '계획착수일', '블록'], inplace=True)
+    if backward:
+        df_schedule.sort_values(by=['납기일', '호선', '블록그룹', '계획착수일', '블록'], inplace=True, ascending=False)
+    else:
+        df_schedule.sort_values(by=['납기일', '호선', '블록그룹', '계획착수일', '블록'], inplace=True)
     df_schedule.reset_index(drop=True, inplace=True)
 
     df_schedule['계획착수일'] = pd.to_datetime(df_schedule['계획착수일'], format='%Y%m%d')

@@ -172,27 +172,27 @@ def run(MAX_EPISODE=1000):
 
 
 if __name__ == "__main__":
-    inbounds = work.import_blocks_schedule('../environment/data/191227_납기일 추가.xlsx')
+    inbounds = work.import_blocks_schedule('../environment/data/191227_납기일 추가.xlsx', backward=True)
 
     blocks = inbounds[-1].block + 1
-    days = inbounds[-1].latest_finish + 1
+    days = inbounds[0].latest_finish + 1
 
     if not os.path.exists('../frames/a2c'):
         os.makedirs('../frames/a2c')
     if not os.path.exists('../frames/a2c/%d-%d' % (days, blocks)):
         os.makedirs('../frames/a2c/%d-%d' % (days, blocks))
 
-    env = sch.Scheduling(num_days=days, num_blocks=blocks, inbound_works=inbounds, display_env=False)
+    env = sch.Scheduling(num_days=days, num_blocks=blocks, inbound_works=inbounds, backward=True, display_env=False)
 
     N_F = env.n_features
     N_A = env.action_space
 
     # Superparameters
     #OUTPUT_GRAPH = False
-    MAX_EPISODE = 1000
-    GAMMA = 0.9  # reward discount in TD error
-    LR_A = 0.001  # learning rate for actor
-    LR_C = 0.001  # learning rate for critic
+    MAX_EPISODE = 20000
+    GAMMA = 0.99  # reward discount in TD error
+    LR_A = 1e-5  # learning rate for actor
+    LR_C = 1e-5  # learning rate for critic
 
     sess = tf.Session()
 
