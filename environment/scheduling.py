@@ -122,13 +122,17 @@ class Scheduling(object):
         last_work = self.works[-2]
         lead_time = self.inbound_works[self._ongoing - 1].lead_time
         loads = np.sum(state, axis=0)
-        reward = 0
+        loads_last_work = loads[last_work:last_work + lead_time]
+        #deviation = (loads_last_work - np.mean(loads)).mean()
+        deviation = max(0.2, float(np.std(loads_last_work)))
+        '''
         for i in range(lead_time):
             if loads[last_work + i] > 1:
-                reward += 0
+                reward += -1
             elif loads[last_work + i] == 1:
                 reward += 1
-        return reward
+        '''
+        return 1 / deviation
 
 
 class LocatingDisplay(object):
@@ -162,7 +166,11 @@ class LocatingDisplay(object):
         self.total = 0
         self.display_width = self.x_span * width + 200
         self.display_height = self.y_span * height + 200
-        self.gameDisplay = pygame.display.set_mode((self.display_width, self.display_height))
+        self.gameDisplay = pygame.display.set_mode((self.display_width, self.display_height),
+                                                   pygame.HWSURFACE | pygame.DOUBLEBUF | pygame.RESIZABLE)
+        self.fake_screen = self.gameDisplay.copy()
+        self.pic = pygame.surface.Surface((50, 50))
+        self.pic.fill((255, 100, 200))
 
     def restart(self):
         self.space.reset()
@@ -200,7 +208,7 @@ class LocatingDisplay(object):
             if self.on_button:
                 color = self.red
         pygame.draw.rect(self.gameDisplay, color, self.button_goal)
-        large_text = pygame.font.Font(self.font, 20)
+        large_text = pygame.font.Font(self.font, 20 * self.screen_size_factor)
         text_surf, text_rect = self.text_objects(str_goal, large_text)
         text_rect.center = (int(self.button_goal[0] + 0.5 * self.button_goal[2]),
                             int(self.button_goal[1] + 0.5 * self.button_goal[3]))
@@ -227,6 +235,12 @@ class LocatingDisplay(object):
                     elif event.key == pygame.K_ESCAPE:
                         game_exit = True
                         break
+                elif event.type == pygame.VIDEORESIZE:
+                    self.gameDisplay = pygame.display.set_mode(event.dict['size'],
+                                                     pygame.HWSURFACE | pygame.DOUBLEBUF | pygame.RESIZABLE)
+                    self.fake_screen.blit(self.pic, (100, 100))
+                    self.gameDisplay.blit(pygame.transform.scale(self.fake_screen, event.dict['size']), (0, 0))
+                    pygame.display.flip()
                 if action != -1:
                     state, reward, done = self.space.step(action)
                     self.total += reward
