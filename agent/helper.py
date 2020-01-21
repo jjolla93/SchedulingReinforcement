@@ -15,7 +15,7 @@ def save_gif(frames, frame_shape, episode, rl='dqn'):
         big_images.append(scipy.misc.imresize(image, [height * 30, width * 30], interp='nearest'))
     big_images = np.array(big_images)
     make_gif(big_images,
-             'frames/%s/%d-%d/image' % (rl, height, width) + str(episode) + '.gif',
+             '../frames/%s/%d-%d/image' % (rl, height, width) + str(episode) + '.gif',
              duration=len(big_images) * time_per_step, true_image=True, salience=False)
 
 

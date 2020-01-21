@@ -76,7 +76,7 @@ def import_blocks_schedule(filepath, backward=True):
         df_schedule.reset_index(drop=True, inplace=True)
         block += 1
 
-    return works
+    return works, block, max_days
 
 
 if __name__ == '__main__':

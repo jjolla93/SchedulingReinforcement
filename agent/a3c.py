@@ -268,19 +268,17 @@ class Worker():
                     episode_count += 1
 
 
-inbounds = import_blocks_schedule('../environment/data/191227_납기일 추가.xlsx', backward=False)
+inbounds, blocks, days = import_blocks_schedule('../environment/data/191227_납기일 추가.xlsx', backward=True)
 max_episode_length = 300
-max_episode = 10000
+max_episode = 30000
 gamma = .99  # discount rate for advantage estimation and reward discounting
-blocks = inbounds[-1].block + 1
-days = inbounds[-1].latest_finish + 1
 s_shape = (blocks, days)
 s_size = s_shape[0] * s_shape[1]
 a_size = 2
 load_model = False
-model_path = './model/a3c/%d-%d' % s_shape
-frame_path = './frames/a3c/%d-%d' % s_shape
-summary_path = './summary/a3c/%d-%d' % s_shape
+model_path = '../model/a3c/%d-%d' % s_shape
+frame_path = '../frames/a3c/%d-%d' % s_shape
+summary_path = '../summary/a3c/%d-%d' % s_shape
 tf.reset_default_graph()
 
 if not os.path.exists(model_path):
@@ -299,8 +297,8 @@ with tf.device("/cpu:0"):
     num_workers = multiprocessing.cpu_count()  # Set workers to number of available CPU threads
     workers = []
     # Create worker classes
-    for i in range(num_workers):
-        locating = Scheduling(num_days=days, num_blocks=blocks, inbound_works=inbounds, backward=False, display_env=False)
+    for i in range(1):
+        locating = Scheduling(num_days=days, num_blocks=blocks, inbound_works=inbounds, backward=True, display_env=False)
         workers.append(Worker(locating, i, s_size, a_size, trainer, model_path, global_episodes))
     saver = tf.train.Saver(max_to_keep=5)
 

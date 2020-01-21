@@ -172,15 +172,10 @@ def run(MAX_EPISODE=1000):
 
 
 if __name__ == "__main__":
-    inbounds = work.import_blocks_schedule('../environment/data/191227_납기일 추가.xlsx', backward=True)
+    inbounds, blocks, days = work.import_blocks_schedule('../environment/data/191227_납기일 추가.xlsx', backward=True)
 
-    blocks = inbounds[-1].block + 1
-    days = inbounds[0].latest_finish + 1
-
-    if not os.path.exists('../frames/a2c'):
-        os.makedirs('../frames/a2c')
-    if not os.path.exists('../frames/a2c/%d-%d' % (days, blocks)):
-        os.makedirs('../frames/a2c/%d-%d' % (days, blocks))
+    if not os.path.exists('../frames/a2c/%d-%d' % (blocks, days)):
+        os.makedirs('../frames/a2c/%d-%d' % (blocks, days))
 
     env = sch.Scheduling(num_days=days, num_blocks=blocks, inbound_works=inbounds, backward=True, display_env=False)
 

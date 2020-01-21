@@ -280,31 +280,10 @@ def run(episodes=1000, update_term=5):
 
 
 if __name__ == "__main__":
-    #days = 15  # 90일 231
-    #blocks = 5  # 10개 444
-    '''
-    inbounds = [work.Work('Work0', 0, 2, -1, -1, days), work.Work('Work1', 0, 1, -1, 5, days),
-                work.Work('Work2', 1, 1, 1, -1, days), work.Work('Work3', 1, 3, -1, 8, days),
-                work.Work('Work4', 2, 2, 4, -1, days), work.Work('Work5', 2, 2, -1, 10, days),
-                work.Work('Work6', 3, 1, 2, -1, days), work.Work('Work7', 3, 3, -1, 12, days),
-                work.Work('Work8', 4, 2, 4, -1, days), work.Work('Work9', 4, 2, -1, 14, days)]
-    # inbounds.append(work.Work('Work9', 4, 2, -1, 14, days))
-    '''
+    inbounds, blocks, days = work.import_blocks_schedule('../environment/data/191227_납기일 추가.xlsx', backward=False)
 
-    inbounds = work.import_blocks_schedule('../environment/data/191227_납기일 추가.xlsx', backward=False)
-    #inbounds = inbounds[:7]
-    '''
-    for i in range(len(inbounds)):
-        print("블록 번호: {0}, 계획공기: {1}, 납기일: {2}".format(inbounds[i].block, inbounds[i].lead_time, inbounds[i].latest_finish))
-    '''
-
-    blocks = inbounds[-1].block + 1
-    days = inbounds[-1].latest_finish + 1
-
-    if not os.path.exists('../frames/dqn'):
-        os.makedirs('../frames/dqn')
-    if not os.path.exists('../frames/dqn/%d-%d' % (days, blocks)):
-        os.makedirs('../frames/dqn/%d-%d' % (days, blocks))
+    if not os.path.exists('../frames/dqn/%d-%d' % (blocks, days)):
+        os.makedirs('../frames/dqn/%d-%d' % (blocks, days))
 
     env = sch.Scheduling(num_days=days, num_blocks=blocks, inbound_works=inbounds, backward=False, display_env=False)
     RL = DeepQNetwork(env.action_space, env.n_features, (env.num_block, env.num_days),
