@@ -297,7 +297,7 @@ with tf.device("/cpu:0"):
     num_workers = multiprocessing.cpu_count()  # Set workers to number of available CPU threads
     workers = []
     # Create worker classes
-    for i in range(1):
+    for i in range(num_workers):
         locating = Scheduling(num_days=days, num_blocks=blocks, inbound_works=inbounds, backward=True, display_env=False)
         workers.append(Worker(locating, i, s_size, a_size, trainer, model_path, global_episodes))
     saver = tf.train.Saver(max_to_keep=5)

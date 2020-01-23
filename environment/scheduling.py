@@ -102,19 +102,35 @@ class Scheduling(object):
                 state[self.inbound_works[i].block, location + j] = cell
         return state
 
-    def _calculate_reward2(self):
+    def _calculate_reward(self):
+        state = self.get_state()
+        state[state == 1] = 0
+        state[state == 2] = 1
+        state[state == 3] = 0
+        loads = np.sum(state, axis=0)
+        score1 = 2  # load가 1인 날짜에 부여하는 점수
+        score2 = 1  # load가 2인 날짜에 부여하는 점수
+        reward = 0
+        for load in loads:
+            if load == 1:
+                reward += score1
+            elif load == 2:
+                reward += score2
+        return reward
+
+    def _calculate_reward_by_deviation(self):
         state = self.get_state()
         state[state == 1] = 0
         state[state == 2] = 1
         state[state == 3] = 0
         loads = np.sum(state, axis=0)
         zeros = np.full(loads.shape, 0)
-        deviation = ((loads - zeros) ** 2).mean(axis=0)
-        #deviation = max(0.2, float(np.std(loads)))
-        deviation = max(0.2, deviation)
+        #deviation = ((loads - zeros) ** 2).mean(axis=0)
+        deviation = max(0.2, float(np.std(loads)))
+        #deviation = max(0.2, deviation)
         return 1 / deviation
 
-    def _calculate_reward(self):
+    def _calculate_reward_by_local_deviation(self):
         state = self.get_state()
         state[state == 1] = 0
         state[state == 2] = 1
@@ -125,13 +141,6 @@ class Scheduling(object):
         loads_last_work = loads[last_work:last_work + lead_time]
         #deviation = (loads_last_work - np.mean(loads)).mean()
         deviation = max(0.2, float(np.std(loads_last_work)))
-        '''
-        for i in range(lead_time):
-            if loads[last_work + i] > 1:
-                reward += -1
-            elif loads[last_work + i] == 1:
-                reward += 1
-        '''
         return 1 / deviation
 
 
