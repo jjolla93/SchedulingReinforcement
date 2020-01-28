@@ -58,9 +58,11 @@ class AC_Network():
             self.conv1 = slim.conv2d(activation_fn=tf.nn.elu,
                                      inputs=self.imageIn, num_outputs=16,
                                      kernel_size=[2, 2], stride=[1, 1], padding='SAME')
+            #self.pooling1 = slim.max_pool2d(inputs=self.conv1, kernel_size=[2, 2], stride=[1, 1])
             self.conv2 = slim.conv2d(activation_fn=tf.nn.elu,
                                      inputs=self.conv1, num_outputs=32,
                                      kernel_size=[2, 2], stride=[1, 1], padding='SAME')
+            #self.pooling2 = slim.max_pool2d(inputs=self.conv2, kernel_size=[2, 2], stride=[1, 1])
             hidden = slim.fully_connected(slim.flatten(self.conv2), 256, activation_fn=tf.nn.elu)
 
             # Recurrent network for temporal dependencies
@@ -269,13 +271,14 @@ class Worker():
 
 
 inbounds, blocks, days = import_blocks_schedule('../environment/data/191227_납기일 추가.xlsx', backward=True)
+window_days = 40
 max_episode_length = 300
-max_episode = 30000
+max_episode = 100000
 gamma = .99  # discount rate for advantage estimation and reward discounting
-s_shape = (blocks, days)
+s_shape = (blocks, window_days)
 s_size = s_shape[0] * s_shape[1]
 a_size = 2
-load_model = False
+load_model = True
 model_path = '../model/a3c/%d-%d' % s_shape
 frame_path = '../frames/a3c/%d-%d' % s_shape
 summary_path = '../summary/a3c/%d-%d' % s_shape
@@ -298,7 +301,8 @@ with tf.device("/cpu:0"):
     workers = []
     # Create worker classes
     for i in range(num_workers):
-        locating = Scheduling(num_days=days, num_blocks=blocks, inbound_works=inbounds, backward=True, display_env=False)
+        locating = Scheduling(num_days=days, window_days=window_days, num_blocks=blocks,
+                              inbound_works=inbounds, backward=True, display_env=False)
         workers.append(Worker(locating, i, s_size, a_size, trainer, model_path, global_episodes))
     saver = tf.train.Saver(max_to_keep=5)
 

@@ -5,9 +5,10 @@ import environment.work as work
 
 
 class Scheduling(object):
-    def __init__(self, num_days=4, num_blocks=0, inbound_works=None, backward=True, display_env=False):
+    def __init__(self, num_days=4, num_blocks=0, window_days=20, inbound_works=None, backward=True, display_env=False):
         self.action_space = 2  # 좌로 이동 비활성화시 2, 활성화시 3
         self.num_days = num_days
+        self.window_days = window_days
         self.num_work = len(inbound_works)
         self.num_block = num_blocks
         self.n_features = num_blocks * num_days
@@ -38,6 +39,7 @@ class Scheduling(object):
         current_work = self.inbound_works[self._ongoing]
         if action == self.select_action:  # 일정 확정
             self._ongoing += 1
+            reward = self._calculate_reward()
             if self._ongoing == self.num_work:
                 done = True
             else:
@@ -54,7 +56,6 @@ class Scheduling(object):
                         self._location += current_work.lead_time
                     self._location = min(self.num_days - next_work.lead_time, self._location)
                 self.works.append(self._location)
-            reward = self._calculate_reward()
         else:  # 일정 이동
             if action == self.left_action:  # 좌로 이동
                 self._location = max(0, self._location - 1)
@@ -88,10 +89,13 @@ class Scheduling(object):
         moving = 1
         confirmed = 2
         constraint = 3
-        cell = 0
+        ongoing_location = self.works[-1]
+        ongoing_leadtime = self.inbound_works[-1].lead_time
         for i, location in enumerate(self.works):
             if self._ongoing == i:
                 cell = moving
+                ongoing_location = location
+                ongoing_leadtime = self.inbound_works[i].lead_time
             else:
                 cell = confirmed
             if self.inbound_works[i].earliest_start != -1:
@@ -100,6 +104,10 @@ class Scheduling(object):
                 state[self.inbound_works[i].block, self.inbound_works[i].latest_finish] = constraint
             for j in range(self.inbound_works[i].lead_time):
                 state[self.inbound_works[i].block, location + j] = cell
+        lower = max(0, int(ongoing_location + ongoing_leadtime / 2 - self.window_days / 2))
+        lower = min(lower, self.num_days - self.window_days)
+        state = state[:, lower:lower + self.window_days]
+        self.lower = lower
         return state
 
     def _calculate_reward(self):
