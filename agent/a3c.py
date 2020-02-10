@@ -271,14 +271,16 @@ class Worker():
 
 
 inbounds, blocks, days = import_blocks_schedule('../environment/data/191227_납기일 추가.xlsx', backward=True)
-window_days = 40
+window_days = days
+average_load = int(sum(work.lead_time for work in inbounds) / days) + 1
+print(average_load)
 max_episode_length = 300
-max_episode = 100000
-gamma = .99  # discount rate for advantage estimation and reward discounting
+max_episode = 50000
+gamma = 1.0  # discount rate for advantage estimation and reward discounting
 s_shape = (blocks, window_days)
 s_size = s_shape[0] * s_shape[1]
 a_size = 2
-load_model = True
+load_model = False
 model_path = '../model/a3c/%d-%d' % s_shape
 frame_path = '../frames/a3c/%d-%d' % s_shape
 summary_path = '../summary/a3c/%d-%d' % s_shape
@@ -295,14 +297,14 @@ if not os.path.exists(summary_path):
 
 with tf.device("/cpu:0"):
     global_episodes = tf.Variable(0, dtype=tf.int32, name='global_episodes', trainable=False)
-    trainer = tf.train.AdamOptimizer(learning_rate=5e-5)
+    trainer = tf.train.AdamOptimizer(learning_rate=1e-5)
     master_network = AC_Network(s_size, a_size, 'global', None)  # Generate global network
     num_workers = multiprocessing.cpu_count()  # Set workers to number of available CPU threads
     workers = []
     # Create worker classes
     for i in range(num_workers):
         locating = Scheduling(num_days=days, window_days=window_days, num_blocks=blocks,
-                              inbound_works=inbounds, backward=True, display_env=False)
+                              inbound_works=inbounds, backward=True, load=average_load, display_env=False)
         workers.append(Worker(locating, i, s_size, a_size, trainer, model_path, global_episodes))
     saver = tf.train.Saver(max_to_keep=5)
 

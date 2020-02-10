@@ -5,7 +5,7 @@ import environment.work as work
 
 
 class Scheduling(object):
-    def __init__(self, num_days=4, num_blocks=0, window_days=20, inbound_works=None, backward=True, display_env=False):
+    def __init__(self, num_days=4, num_blocks=0, window_days=20, inbound_works=None, load=1, backward=True, display_env=False):
         self.action_space = 2  # 좌로 이동 비활성화시 2, 활성화시 3
         self.num_days = num_days
         self.window_days = window_days
@@ -21,6 +21,7 @@ class Scheduling(object):
         self.left_action = 2
         self.right_action = 0
         self.select_action = 1
+        self.load = load
         self.backward = backward
         if backward:
             self.left_action, self.right_action = self.right_action, self.left_action
@@ -115,15 +116,22 @@ class Scheduling(object):
         state[state == 1] = 0
         state[state == 2] = 1
         state[state == 3] = 0
+        #loads = np.sum(state, axis=0)
+        last_work = self.works[-1]
+        lead_time = self.inbound_works[self._ongoing - 1].lead_time
         loads = np.sum(state, axis=0)
+        loads_last_work = loads[last_work:last_work + lead_time]
         score1 = 2  # load가 1인 날짜에 부여하는 점수
-        score2 = 1  # load가 2인 날짜에 부여하는 점수
+        score2 = 1 # load가 2인 날짜에 부여하는 점수
+        score3 = -1
         reward = 0
-        for load in loads:
-            if load == 1:
+        for load in loads_last_work:
+            if load == self.load - 1:
                 reward += score1
-            elif load == 2:
+            elif load == self.load:
                 reward += score2
+            elif load > self.load:
+                reward += score3
         return reward
 
     def _calculate_reward_by_deviation(self):
@@ -164,8 +172,8 @@ class LocatingDisplay(object):
 
     x_init = 100
     y_init = 100
-    x_span = 100
-    y_span = 100
+    x_span = 20
+    y_span = 50
     thickness = 5
     pygame.init()
     display_width = 1000

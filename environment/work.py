@@ -18,7 +18,7 @@ def import_blocks_schedule(filepath, backward=True):
 
     df_rev = pd.read_excel(filepath)
     #df_schedule = pd.read_csv(filepath, encoding='euc-kr')
-    df = df_rev[df_rev['호선'] == 2962]
+    df = df_rev[df_rev['호선'] == 3095]
 
     masking = [a or b or c or d for a, b, c, d in zip(df['공정'] == 4, df['공정'] == 6, df['공정'] == 7, df['공정'] == 8)]
     df_schedule = df[masking]
