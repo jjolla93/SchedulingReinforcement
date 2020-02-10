@@ -249,6 +249,9 @@ class Worker():
                         if episode_count % 250 == 0 and self.name == 'worker_0':
                             saver.save(sess, self.model_path + '/model-' + str(episode_count) + '.cptk')
                             print("Saved Model at episode %d" % episode_count)
+                        if episode_count % 250 == 0 and self.name == 'worker_0':
+                            print("Saved Results at episode %d" % episode_count)
+                            export_blocks_schedule(result_path + '/result-' + str(episode_count))
 
                         mean_reward = np.mean(self.episode_rewards[-5:])
                         mean_length = np.mean(self.episode_lengths[-5:])
@@ -271,11 +274,11 @@ class Worker():
 
 
 inbounds, blocks, days = import_blocks_schedule('../environment/data/191227_납기일 추가.xlsx', backward=True)
-window_days = days
+window_days = 40
 average_load = int(sum(work.lead_time for work in inbounds) / days) + 1
 print(average_load)
 max_episode_length = 300
-max_episode = 50000
+max_episode = 20000
 gamma = 1.0  # discount rate for advantage estimation and reward discounting
 s_shape = (blocks, window_days)
 s_size = s_shape[0] * s_shape[1]
@@ -284,6 +287,7 @@ load_model = False
 model_path = '../model/a3c/%d-%d' % s_shape
 frame_path = '../frames/a3c/%d-%d' % s_shape
 summary_path = '../summary/a3c/%d-%d' % s_shape
+result_path = '../result/a3c/%d-%d' % s_shape
 tf.reset_default_graph()
 
 if not os.path.exists(model_path):
@@ -294,6 +298,9 @@ if not os.path.exists(frame_path):
 
 if not os.path.exists(summary_path):
     os.makedirs(summary_path)
+
+if not os.path.exists(result_path):
+    os.makedirs(result_path)
 
 with tf.device("/cpu:0"):
     global_episodes = tf.Variable(0, dtype=tf.int32, name='global_episodes', trainable=False)

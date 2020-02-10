@@ -28,6 +28,7 @@ class Scheduling(object):
             self._location = \
                 self.inbound_works[self._ongoing].latest_finish - self.inbound_works[self._ongoing].lead_time
         self.works = [self._location]
+        self.inbound_works[self._ongoing].start_date_lr = self._location
         # self.yard = np.full([max_stack, num_pile], self.empty)
         if display_env:
             display = LocatingDisplay(self, num_days, self.num_block)
@@ -57,6 +58,7 @@ class Scheduling(object):
                         self._location += current_work.lead_time
                     self._location = min(self.num_days - next_work.lead_time, self._location)
                 self.works.append(self._location)
+                self.inbound_works[self._ongoing].start_date_lr = self._location
         else:  # 일정 이동
             if action == self.left_action:  # 좌로 이동
                 self._location = max(0, self._location - 1)
@@ -68,8 +70,10 @@ class Scheduling(object):
                     self._location = min(self.num_days - current_work.lead_time, self._location + 1)
             if len(self.works) == self._ongoing:
                 self.works.append(self._location)
+                self.inbound_works[self._ongoing].start_date_lr = self._location
             else:
                 self.works[self._ongoing] = self._location
+                self.inbound_works[self._ongoing].start_date_lr = self._location
         next_state = self.get_state().flatten()
         if self.stage == 300:
             done = True
@@ -83,6 +87,7 @@ class Scheduling(object):
             self._location = \
                 self.inbound_works[self._ongoing].latest_finish - self.inbound_works[self._ongoing].lead_time
         self.works = [self._location]
+        self.inbound_works[self._ongoing].start_date_lr = self._location
         return self.get_state().flatten()
 
     def get_state(self):
