@@ -33,7 +33,7 @@ def import_blocks_schedule(filepath, backward=True):
     df_rev = pd.read_excel(filepath)
     #df_schedule = pd.read_csv(filepath, encoding='euc-kr')
     global project
-    project = 2962
+    project = 3095
     df = df_rev[df_rev['호선'] == project]
 
     masking = [a or b or c or d for a, b, c, d in zip(df['공정'] == 4, df['공정'] == 6, df['공정'] == 7, df['공정'] == 8)]
@@ -112,32 +112,38 @@ def import_blocks_schedule(filepath, backward=True):
     return works, block, max_days
 
 
-def calculate_overlap(state):
+def calculate_deviation(state):
     s = copy.copy(state)
-    s[s == 1] = 0
-    s[s == 2] = 1
-    s[s == 3] = 0
+    s[s == -1] = 0
 
     loads = np.sum(s, axis=0)
     start = (np.where(loads != 0))[0]
-    duration = start[-1] - start[0] + 1
-    loads[loads > 0] -= 1
-    overlap = np.sum(loads, axis=0)
+    deviation = np.std(loads[start[0]:(start[-1] + 1)])
 
-    return duration, overlap
+    return deviation
 
 
 def make_image(filepath, name, state):
+    s1 = copy.copy(state)
+    s2 = copy.copy(state)
+    s1[s1 > 0] = 1
+    s2[s2 == -1] = 0
+    loads = np.sum(s2, axis=0)
     color_map = {
         0: [0, 0, 0],  # black
-        1: [0, 255, 0],  # green
-        2: [0, 0, 255],  # blue
-        3: [255, 0, 0],  # red
+        1: [0, 0, 255],  # blue
+        -1: [255, 0, 0],  # red
     }
-    colored_image = np.zeros([state.shape[0], state.shape[1], 3])
+    colored_image = np.zeros([state.shape[0] + 1, state.shape[1], 3])
     for i in range(state.shape[0]):
         for j in range(state.shape[1]):
-            colored_image[i, j] = color_map[int(state[i, j])]
+            colored_image[i + 1, j] = color_map[int(s1[i, j])]
+    for i in range(len(loads)):
+        if loads[i] == 0.0:
+            colored_image[0, i] = [0, 0, 0]
+        else:
+            grey = max(0, 255 - 0.025 * 255 * loads[i])
+            colored_image[0, i] = [grey, grey, grey]
 
     big_image = scipy.misc.imresize(colored_image, [state.shape[0] * 30, state.shape[1] * 30], interp='nearest')
     image = Image.fromarray(big_image.astype('uint8'), 'RGB')
@@ -148,18 +154,18 @@ def export_blocks_schedule(filepath):
     plan_state = np.full([blocks, days], 0)
     state = np.full([blocks, days], 0)
     for activity in activities:
-        plan_state[activity.block, activity.start_date_plan:(activity.finish_date_plan + 1)] = 2
-        plan_state[activity.block, activity.latest_finish] = 3
-        state[activity.block, activity.start_date_lr:(activity.start_date_lr + activity.lead_time)] = 2
-        state[activity.block, activity.latest_finish] = 3
+        plan_state[activity.block, activity.start_date_plan:(activity.finish_date_plan + 1)] += 1
+        plan_state[activity.block, activity.latest_finish] = -1
+        state[activity.block, activity.start_date_lr:(activity.start_date_lr + activity.lead_time)] += 1
+        state[activity.block, activity.latest_finish] = -1
 
     make_image(filepath, 'plan', plan_state)
     make_image(filepath, 'a3c', state)
 
-    duration_plan, overlap_plan = calculate_overlap(plan_state)
-    duration, overlap = calculate_overlap(state)
+    deviation_plan = calculate_deviation(plan_state)
+    deviation = calculate_deviation(state)
 
-    workbook = xlsxwriter.Workbook(filepath + '_{0}호선_{1}겹침 액티비티.xlsx'.format(project, overlap))
+    workbook = xlsxwriter.Workbook(filepath + '_{0}호선_{1}표준편차.xlsx'.format(project, round(deviation, 3)))
     worksheet = workbook.add_worksheet()
 
     row, col = 0, 0
@@ -180,18 +186,15 @@ def export_blocks_schedule(filepath):
         worksheet.write(row, col + 6, (pd.to_datetime(zero_point) + datetime.timedelta(days=int(activities[i].latest_finish))).strftime('%Y%m%d'))
 
     row, col = 0, 11
-    worksheet.write(row, col, '겹치는 액티비티 수')
-    worksheet.write(row, col + 1, '기간')
+    worksheet.write(row, col, '표준편차')
 
     row, col = 1, 10
     worksheet.write(row, col, '계획 데이터')
     worksheet.write(row + 1, col, '결과 데이터')
 
     row, col = 1, 11
-    worksheet.write(row, col, overlap_plan)
-    worksheet.write(row, col + 1, duration_plan)
-    worksheet.write(row + 1, col, overlap)
-    worksheet.write(row + 1, col + 1, duration)
+    worksheet.write(row, col, deviation_plan)
+    worksheet.write(row + 1, col, deviation)
 
     row, col = 5, 10
     worksheet.write(row, col, '계획 데이터')

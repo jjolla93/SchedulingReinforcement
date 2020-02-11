@@ -274,16 +274,16 @@ class Worker():
 
 
 inbounds, blocks, days = import_blocks_schedule('../environment/data/191227_납기일 추가.xlsx', backward=True)
-window_days = 40
+window_days = days
 average_load = int(sum(work.lead_time for work in inbounds) / days) + 1
 print(average_load)
 max_episode_length = 300
-max_episode = 20000
+max_episode = 14501
 gamma = 1.0  # discount rate for advantage estimation and reward discounting
 s_shape = (blocks, window_days)
 s_size = s_shape[0] * s_shape[1]
 a_size = 2
-load_model = False
+load_model = True
 model_path = '../model/a3c/%d-%d' % s_shape
 frame_path = '../frames/a3c/%d-%d' % s_shape
 summary_path = '../summary/a3c/%d-%d' % s_shape
